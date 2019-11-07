@@ -65,12 +65,13 @@ def SenateClean():
     df = df.drop(df[(df.party != "democrat") & (df.party != "republican")].index)
 
     df["voteshare"] = df["candidatevotes"] / df["totalvotes"]
+    df = df.reset_index(drop=True)
 
     return df
 
+
 def HouseClean():
     df = pd.read_csv("data/1976-2018-house.csv")
-
     df = df.drop(
         [
             "state_po",
@@ -90,11 +91,15 @@ def HouseClean():
         axis=1,
     )
     df = df.drop(df[(df.party != "democrat") & (df.party != "republican")].index)
-    df["voteshare"] = df["candidatevotes"] / df["totalvotes"]
+
+    total_AL_dem_1976 = df["candidatevotes"].where(df["candidate"] == "Bill Davenport").sum()
+    
+    print(total_AL_dem_1976)
+    print(df[(df["party"] =="democrat") & (df["year"] == 1976)] )
+    return df
 
 
 pres_df = PresClean()
 senate_df = SenateClean()
 house_df = HouseClean()
-
 
