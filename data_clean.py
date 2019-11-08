@@ -1,6 +1,16 @@
 import pandas as pd
 import numpy as np
 
+STATES = ["Alabama","Alaska","Arizona","Arkansas","California","Colorado",
+  "Connecticut","Delaware","Florida","Georgia","Hawaii","Idaho","Illinois",
+  "Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland",
+  "Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana",
+  "Nebraska","Nevada","New Hampshire","New Jersey","New Mexico","New York",
+  "North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania",
+  "Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah",
+  "Vermont","Virginia","Washington","West Virginia","Wisconsin","Wyoming"]
+
+
 
 def PresClean():
     df = pd.read_csv("data/1976-2016-president.csv")
@@ -92,11 +102,26 @@ def HouseClean():
     )
     df = df.drop(df[(df.party != "democrat") & (df.party != "republican")].index)
 
-    total_AL_dem_1976 = df["candidatevotes"].where(df["candidate"] == "Bill Davenport").sum()
+    houseVoteshare = pd.DataFrame(columns=["year", "state", "dem_voteshare", "rep_voteshare"])
+    index = 0
+    for year in range(1976, 2018, 2):
+        for state in STATES:
+            share_dem, share_rep = voteShare(df, year, state)
+            houseVoteshare.loc[index] = [year, state, share_dem, share_rep]
+            index += 1
+
+    return houseVoteshare
+
+def voteShare(df, year, state):
+    candidate_total_dem = df["candidatevotes"].where((df["party"] == "democrat") & (df["year"] == year) & (df["state"] == state)).sum()
+    total_dem = df["totalvotes"].where((df.year == year) & (df.state == state) & (df.party == "democrat")).sum()
+    candidate_total_rep = df["candidatevotes"].where((df["party"] == "republican") & (df["year"] == year) & (df["state"] == state)).sum()
+    total_rep = df["totalvotes"].where((df.year == year) & (df.state == state) & (df.party == "republican")).sum()
+
+    # print("Dem voteshare %s in %s in %s" % (candidate_total_dem / total_dem, state, year))
+    # print("Rep voteshare %s in %s in %s" % (candidate_total_rep / total_rep, state, year))
     
-    print(total_AL_dem_1976)
-    print(df[(df["party"] =="democrat") & (df["year"] == 1976)] )
-    return df
+    return (candidate_total_dem/total_dem), (candidate_total_rep/total_rep)
 
 
 pres_df = PresClean()
