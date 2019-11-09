@@ -1,6 +1,25 @@
 import pandas as pd
 import numpy as np
 
+
+
+# The number of the consecutive terms the incumbent party has been in office.
+
+# Personal income.
+
+# Electoral votes of the incumbent party in the previous election.
+
+# Votes of the incumbent party in the last senate election.
+
+# Votes of the incumbent party in the last house of representatives election.
+
+# The president’s approval rate.
+
+# Unemployment rate.
+
+# The number of times that the 3-month GDP is above 3.2 within the last 4 years.
+
+
 STATES = ["Alabama","Alaska","Arizona","Arkansas","California","Colorado",
   "Connecticut","Delaware","Florida","Georgia","Hawaii","Idaho","Illinois",
   "Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland",
@@ -17,6 +36,38 @@ def voteShare(df, year, state):
     total_rep = df["totalvotes"].where((df.year == year) & (df.state == state) & (df.party == "republican")).sum()
     
     return (candidate_total_dem/total_dem), (candidate_total_rep/total_rep)
+
+def ApprovalClean():
+    df = pd.read_csv("data/approval.csv")
+    appdf = pd.DataFrame(columns=["year", "month", "approval"])
+    
+    index = 0
+    for year in range(1980, 2020, 4): 
+        apr_approve = df[(df["year"] == year) & (df["month"] == 4)].approve.mean()
+        appdf.loc[index] = [year, 4, apr_approve]
+        index += 1
+        jun_approve = df[(df["year"] == year) & (df["month"] == 6)].approve.mean()
+        appdf.loc[index] = [year, 6, jun_approve]
+        index += 1
+
+    appdf ["year"] = appdf["year"].astype("int64")
+    return appdf
+
+def incum_h(row):
+    incum = {
+        1976: "republican",
+        1980: "democrat", 
+        1984: "republican", 
+        1988: "republican", 
+        1992: "republican", 
+        1996: "democrat", 
+        2000: "democrat", 
+        2004: "republican", 
+        2008: "republican", 
+        2012: "democrat", 
+        2016: "democrat"
+    }
+    return incum[row["year"]]
 
 def PresClean():
     df = pd.read_csv("data/1976-2016-president.csv")
@@ -39,23 +90,21 @@ def PresClean():
 
     df = df.reset_index(drop=True)
 
-    losers = []
+    win = pd.DataFrame(columns=["year", "state", "winner"])
+    index = 0
     for i in range(0, df.shape[0] - 1):
         if df.iloc[i]["state"] == df.iloc[i + 1]["state"]:
-            if df.iloc[i]["voteshare"] < df.iloc[i + 1]["voteshare"]:
-                losers.append(i)
-            else:
-                losers.append(i + 1)
-
-    df = df.drop(df.index[losers])
+            if df.iloc[i]["voteshare"] > df.iloc[i + 1]["voteshare"]:
+                win.loc[index] = [df.iloc[i]["year"], df.iloc[i]["state"], df.iloc[i]["party"]]
+                index += 1
 
     df = df.reset_index(drop=True)
 
-    # add a column that is "incumbent: true, false"
+    df["incumbent"] = df.apply(lambda row: incum_h(row), axis=1)
 
-    # df.to_csv("data/pres_clean.csv", index=False)
+    df["incumbent_win"] = df["incumbent"] == df["party"]
 
-    return df
+    return win, df
 
 
 def SenateClean():
@@ -128,8 +177,74 @@ def HouseClean():
 
     return h_df
 
+def SaveAll():
+    # ApprovalClean().to_csv("data/approvalClean.csv", index=False)
+    HouseClean().to_csv("data/houseClean.csv", index=False)
+    SenateClean().to_csv("data/senateClean.csv", index=False)
+    win, pres = PresClean()
+    win.to_csv("data/winClean.csv", index=False)
+    pres.to_csv("data/presClean.csv", index=False)
 
-pres_df = PresClean()
-senate_df = SenateClean()
-house_df = HouseClean()
+def AllClean():
+    a_df = pd.read_csv("data/approvalClean.csv")
+    h_df = pd.read_csv("data/houseClean.csv")
+    s_df = pd.read_csv("data/senateClean.csv")
+    win_df = pd.read_csv("data/winClean.csv")
+    p_df = pd.read_csv("data/presClean.csv")
+    incum = {
+        1976: "republican",
+        1980: "democrat", 
+        1984: "republican", 
+        1988: "republican", 
+        1992: "republican", 
+        1996: "democrat", 
+        2000: "democrat", 
+        2004: "republican", 
+        2008: "republican", 
+        2012: "democrat", 
+        2016: "democrat"
+    }
 
+    df = pd.DataFrame(columns=
+        [
+            "year",
+            "state", 
+            "inc_prev_house", 
+            "inc_prev_sen", 
+            "inc_prev_pres", 
+            "inc_app_apr", 
+            "inc_app_jun", 
+            "inc_win"
+        ]
+    )
+    
+    index = 0
+    for year in range(1980, 2020, 4):
+        for state in STATES:
+            if incum[year] == "republican":
+                inc_prev_house = h_df[(h_df["year"] == year-2) & (h_df["state"] == state)].rep_voteshare.values[0]
+                if state in s_df[(s_df["year"] == year-2)].state.values:
+                    inc_prev_sen = s_df[(s_df["year"] == year-2) & (s_df["state"] == state)].rep_voteshare.values[0]
+                else:
+                    inc_prev_sen = s_df[(s_df["year"] == year-4) & (s_df["state"] == state)].rep_voteshare.values[0]
+            else:
+                inc_prev_house = h_df[(h_df["year"] == year-4) & (h_df["state"] == state)].dem_voteshare.values[0]
+                if state in s_df[(s_df["year"] == year-2)].state.values:
+                    inc_prev_sen = s_df[(s_df["year"] == year-2) & (s_df["state"] == state)].dem_voteshare.values[0]
+                else:
+                    inc_prev_sen = s_df[(s_df["year"] == year-4) & (s_df["state"] == state)].dem_voteshare.values[0]
+            inc_prev_pres = p_df[(p_df["year"] == year-4) & (p_df["state"] == state) & (p_df["party"] == incum[year])].voteshare.values[0]
+            inc_app_apr = a_df[(a_df["year"] == year) & (a_df["month"] == 4)].approval.values[0]
+            inc_app_jun = a_df[(a_df["year"] == year) & (a_df["month"] == 6)].approval.values[0]
+            if incum[year] == win_df[(win_df["year"] == year) & (win_df["state"] == state)].winner.values[0]:
+                inc_win = 1
+            else:
+                inc_win = 0
+
+            df.loc[index] = [year, state, inc_prev_house, inc_prev_sen, inc_prev_pres, inc_app_apr, inc_app_jun, inc_win]
+            index += 1
+    return df
+
+# SaveAll()
+df = AllClean()
+df.to_csv("data/train.csv")
