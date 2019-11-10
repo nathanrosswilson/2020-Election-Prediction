@@ -186,7 +186,7 @@ def SaveAll():
     pres.to_csv("data/presClean.csv", index=False)
 
 def AllClean():
-    a_df = pd.read_csv("data/approvalClean.csv")
+    a_df = pd.read_csv("data/jar.csv")
     h_df = pd.read_csv("data/houseClean.csv")
     s_df = pd.read_csv("data/senateClean.csv")
     win_df = pd.read_csv("data/winClean.csv")
@@ -202,7 +202,8 @@ def AllClean():
         2004: "republican", 
         2008: "republican", 
         2012: "democrat", 
-        2016: "democrat"
+        2016: "democrat",
+        2020: "republican"
     }
 
     df = pd.DataFrame(columns=
@@ -212,14 +213,13 @@ def AllClean():
             "inc_prev_house", 
             "inc_prev_sen", 
             "inc_prev_pres", 
-            "inc_app_apr", 
-            "inc_app_jun", 
+            "inc_appr", 
             "inc_win"
         ]
     )
     
     index = 0
-    for year in range(1980, 2020, 4):
+    for year in range(1980, 2024, 4):
         for state in STATES:
             if incum[year] == "republican":
                 inc_prev_house = h_df[(h_df["year"] == year-2) & (h_df["state"] == state)].rep_voteshare.values[0]
@@ -234,17 +234,17 @@ def AllClean():
                 else:
                     inc_prev_sen = s_df[(s_df["year"] == year-4) & (s_df["state"] == state)].dem_voteshare.values[0]
             inc_prev_pres = p_df[(p_df["year"] == year-4) & (p_df["state"] == state) & (p_df["party"] == incum[year])].voteshare.values[0]
-            inc_app_apr = a_df[(a_df["year"] == year) & (a_df["month"] == 4)].approval.values[0]
-            inc_app_jun = a_df[(a_df["year"] == year) & (a_df["month"] == 6)].approval.values[0]
+            inc_appr = a_df[(a_df["ELECYR"] == year-4) & (a_df["STATE"] == STATES.index(state)+1)]["POS PCT"].mean()
             if incum[year] == win_df[(win_df["year"] == year) & (win_df["state"] == state)].winner.values[0]:
                 inc_win = 1
             else:
                 inc_win = 0
 
-            df.loc[index] = [year, state, inc_prev_house, inc_prev_sen, inc_prev_pres, inc_app_apr, inc_app_jun, inc_win]
+            df.loc[index] = [year, state, inc_prev_house, inc_prev_sen, inc_prev_pres, inc_appr, inc_win]
             index += 1
+    df = df.fillna(method="ffill", axis=0)
     return df
 
 # SaveAll()
 df = AllClean()
-df.to_csv("data/train.csv")
+df.to_csv("data/train.csv", index = False)
